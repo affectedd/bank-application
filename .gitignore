@@ -1,0 +1,13 @@
+.venv/
+venv/
+ENV/
+
+bank.db
+app/bank.db
+
+**/__pycache__/
+*.pyc
+
+.idea/
+
+old_ver/
