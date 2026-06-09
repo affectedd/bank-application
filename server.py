@@ -73,6 +73,8 @@ def handle_client(conn, addr):
                     conn.sendall(b"ERROR_CANNOT_TRANSFER_TO_YOURSELF")
                 elif sender.balance < amount:
                     conn.sendall(b"ERROR_NOT_ENOUGH_BALANCE")
+                elif amount <= 0:
+                    conn.sendall(b"ERROR_INSUFFICIENT_BALANCE")
                 else:
                     sender.balance -= amount
                     recipient.balance += amount
@@ -127,6 +129,37 @@ def handle_client(conn, addr):
                 user_lines = [f"ID: {u.id} | Login: {u.username} | Balance: {u.balance} USD" for u in users]
                 response_str = "ADMIN_USERS_DATA\n" + "\n".join(user_lines)
                 conn.sendall(response_str.encode('utf-8'))
+
+            elif command == "ADMIN_EDIT_USER":
+                if current_user.username != "admin":
+                    conn.sendall(b"ERROR_FORBIDDEN")
+                    continue
+
+                if len(parts) < 3:
+                    conn.sendall(b"ERROR_BAD_ARGUMENTS")
+                    continue
+
+                target_username = parts[1]
+                new_username = parts[2]
+
+                if target_username == "admin":
+                    conn.sendall(b"ERROR_CANNOT_EDIT_ADMIN")
+                    continue
+
+                user_to_edit = db.query(models.User).filter(models.User.username == target_username).first()
+
+                if not user_to_edit:
+                    conn.sendall(b"ERROR_USER_NOT_FOUND")
+                else:
+                    try:
+                        user_to_edit.username = new_username
+                        db.commit()
+                        conn.sendall(b"SUCCESS_USER_UPDATED")
+                    except Exception as e:
+                        db.rollback()
+                        conn.sendall(b"ERROR_DATABASE_FAILED")
+
+
 
             elif command == "ADMIN_DELETE_USER":
                 if current_user.username != "admin":

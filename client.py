@@ -13,8 +13,9 @@ def admin_menu(sock):
     while True:
         print("\n--- ADMINISTRATOR MENU ---")
         print("1. View all accounts")
-        print("2. Delete a user account")
-        print("3. Exit")
+        print("2. Edit a user account")
+        print("3. Delete a user account")
+        print("4. Exit")
 
         choice = input("Enter the option: ").strip()
 
@@ -24,6 +25,34 @@ def admin_menu(sock):
             print(response.replace("ADMIN_USERS_DATA\n",""))
 
         elif choice == "2":
+            target_user = input("Enter the username to edit: ").strip()
+
+            if not target_user:
+                print("\n[ERROR] Username cannot be empty.")
+                continue
+
+            new_username = input("Enter the new username: ").strip()
+            if not new_username:
+                print("\n[ERROR] New username cannot be empty.")
+                continue
+
+
+            response = send_command(sock, f"ADMIN_EDIT_USER {target_user} {new_username}")
+
+            if response == "SUCCESS_USER_UPDATED":
+                print(f"\n[SUCCESS] Username for '{target_user}' changed to '{new_username}'.")
+            elif response == "ERROR_FORBIDDEN":
+                print("\n[ERROR] You do not have admin privileges.")
+            elif response == "ERROR_USER_NOT_FOUND":
+                print(f"\n[ERROR] User '{target_user}' not found.")
+            elif response == "ERROR_CANNOT_EDIT_ADMIN":
+                print("\n[ERROR] You cannot edit the admin account.")
+            elif response == "ERROR_DATABASE_FAILED":
+                print("\n[ERROR] Database error. Maybe this username is already taken?")
+            else:
+                print(f"\n[ERROR] Unknown server response: {response}")
+
+        elif choice == "3":
             target_user = input("Enter the username to delete: ").strip()
 
             if not target_user:
@@ -43,7 +72,7 @@ def admin_menu(sock):
             else:
                 print(f"\n[ERROR] Failed to delete user: {response}")
 
-        elif choice == "3":
+        elif choice == "4":
             print("\nAdmin logged out.")
             break
         else:

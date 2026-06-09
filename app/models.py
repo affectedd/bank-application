@@ -16,7 +16,7 @@ class User(Base):
     balance = Column(Float, default=0.00)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    notifications = relationship("Notification", back_populates="user")
+    notifications = relationship("Notification", back_populates="user", cascade = "all, delete-orphan")
 
 class Transaction(Base):
     __tablename__ = "transactions"
