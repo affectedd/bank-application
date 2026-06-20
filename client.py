@@ -21,12 +21,11 @@ def admin_menu(sock):
 
         if choice == "1":
             response = send_command(sock, "ADMIN_GET_USERS")
-            print("\n=== LIST OF USERS ===")
+            print("\n=== LIST OF USERS & ACCOUNTS ===")
             print(response.replace("ADMIN_USERS_DATA\n",""))
 
         elif choice == "2":
             target_user = input("Enter the username to edit: ").strip()
-
             if not target_user:
                 print("\n[ERROR] Username cannot be empty.")
                 continue
@@ -54,7 +53,6 @@ def admin_menu(sock):
 
         elif choice == "3":
             target_user = input("Enter the username to delete: ").strip()
-
             if not target_user:
                 print("\n[ERROR] Username cannot be empty.")
                 continue
@@ -85,36 +83,48 @@ def bank_menu(sock):
         print("2. Make a transfer")
         print("3. View transaction history")
         print("4. View notifications")
-        print("5. Exit")
+        print("5. Create shared account")
+        print("6. Exit")
 
         choice = input("Enter the option: ").strip()
 
         if choice == "1":
             response = send_command(sock, "BALANCE")
-            if response.startswith("BALANCE:"):
-                balance = response.split()[1]
-                print(f"\n[BALANCE] Current account balance: {balance} USD")
+            print("\n=== YOUR ACCOUNTS ===")
+            if response == "BALANCE_EMPTY":
+                print("You don't have any accounts active.")
+            elif response.startswith("BALANCE_DATA\n"):
+                print(response.replace("BALANCE_DATA\n", ""))
             else:
-                print(f"\n[ERROR] Failed to get balance: {response}")
+                print(f"[ERROR] Failed to get balance: {response}")
 
         elif choice == "2":
-            recipient = input("Enter the recipient username: ").strip()
+            print("\n--- MAKE A TRANSFER ---")
+            source_acc = input("Enter YOUR account number to transfer FROM: ").strip()
+            recipient_acc = input("Enter RECIPIENT account number to transfer TO: ").strip()
             amount = input("Enter the amount to transfer: ").strip()
-            description = input("Enter the description of the transfer(optional): ").strip()
+            description = input("Enter the description of the transfer (optional): ").strip()
+
+            if not source_acc or not recipient_acc or not amount:
+                print("\n[ERROR] Required fields cannot be empty.")
+                continue
 
             description_safe = description.replace(" ", "_") if description else "Transfer"
-
-            command = f"TRANSFER {recipient} {amount} {description_safe}"
+            command = f"TRANSFER {source_acc} {recipient_acc} {amount} {description_safe}"
             response = send_command(sock, command)
 
             if response == "TRANSFER_SUCCESS":
                 print("\n[SUCCESS] The transfer has been completed successfully!")
+            elif response == "ERROR_SOURCE_ACCOUNT_NOT_FOUND":
+                print("\n[ERROR] Source account not found or it doesn't belong to you.")
             elif response == "ERROR_RECIPIENT_NOT_FOUND":
-                print("\n[ERROR] Recipient doesn't exist.")
+                print("\n[ERROR] Recipient account doesn't exist.")
             elif response == "ERROR_NOT_ENOUGH_BALANCE":
-                print("\n[ERROR] You don't have enough balance to transfer.")
+                print("\n[ERROR] You don't have enough balance on this account.")
             elif response == "ERROR_CANNOT_TRANSFER_TO_YOURSELF":
-                print("\n[ERROR] You cannot transfer to yourself.")
+                print("\n[ERROR] You cannot transfer to the same account.")
+            elif response == "ERROR_INVALID_AMOUNT" or response == "ERROR_BAD_ARGUMENTS":
+                print("\n[ERROR] Invalid transfer amount or arguments.")
             else:
                 print(f"\n[ERROR] Failed to transfer: {response}")
 
@@ -134,7 +144,31 @@ def bank_menu(sock):
                 print("No new notifications.")
             else:
                 print(response.replace("NOTIFICATIONS_DATA\n",""))
+
         elif choice == "5":
+            partner = input("Enter the username of your partner (husband/wife): ").strip()
+            if not partner:
+                print("\n[ERROR] Partner username cannot be empty.")
+                continue
+
+            partner_pesel = input("Enter the PESEL of your partner (11 digits): ").strip()
+            if not partner_pesel.isdigit() or len(partner_pesel) != 11:
+                print("\n[ERROR] Invalid partner PESEL format! It must be exactly 11 digits.")
+                continue
+
+            response = send_command(sock, f"CREATE_SHARED_ACCOUNT {partner} {partner_pesel}")
+
+            if response.startswith("SHARED_SUCCESS"):
+                acc_num = response.split()[1]
+                print(f"\n[SUCCESS] Shared account {acc_num} has been successfully created with {partner}!")
+            elif response == "ERROR_PARTNER_NOT_FOUND":
+                print("\n[ERROR] This user does not exist.")
+            elif response == "ERROR_CANNOT_SHARE_WITH_YOURSELF":
+                print("\n[ERROR] You cannot create a shared account with yourself.")
+            else:
+                print(f"\n[ERROR] Failed: {response}")
+
+        elif choice == "6":
             print("\nLogged out.")
             break
         else:
@@ -160,8 +194,13 @@ def main():
         if choice == "1":
             username = input("Enter the login: ").strip()
             password = input("Enter the password: ").strip()
+            pesel = input("Enter your PESEL (11 digits): ").strip()
 
-            response = send_command(sock, f"LOGIN {username} {password}")
+            if not username or not password or not pesel:
+                print("\n[ERROR] All fields are required.")
+                continue
+
+            response = send_command(sock, f"LOGIN {username} {password} {pesel}")
 
             if response == "LOGIN_SUCCESS":
                 print(f"\n[SUCCESS] Hello {username}!")
@@ -170,18 +209,25 @@ def main():
                 else:
                     bank_menu(sock)
             else:
-                print("\n[ERROR] Invalid login or password.")
+                print("\n[ERROR] Invalid login, password or PESEL.")
 
         elif choice == "2":
             username = input("Enter the login: ").strip()
             password = input("Enter the password: ").strip()
+            pesel = input("Enter your PESEL (11 digits): ").strip()
 
-            response = send_command(sock, f"REGISTER {username} {password}")
+            if not pesel.isdigit() or len(pesel) != 11:
+                print("\n[ERROR] Invalid PESEL format! It must be exactly 11 digits.")
+                continue
+
+            response = send_command(sock, f"REGISTER {username} {password} {pesel}")
 
             if response == "REGISTER_SUCCESS":
                 print(f"\n[SUCCESS] The account has been created! Now you can login.")
             elif response == "ERROR_USER_EXISTS":
                 print(f"\n[ERROR] A user with this login already exists.")
+            elif response == "ERROR_PESEL_EXISTS":
+                print(f"\n[ERROR] A user with this PESEL already exists in the system.")
             else:
                 print(f"\n[ERROR] Registration failed: {response}")
 

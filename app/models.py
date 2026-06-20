@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime, Boolean, Table
 from datetime import datetime, timezone
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
@@ -7,16 +7,32 @@ from sqlalchemy.sql import func
 class Base(DeclarativeBase):
     pass
 
+user_account_association = Table(
+    "user_accounts",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key = True),
+    Column("account_id", Integer, ForeignKey("accounts.id", ondelete="CASCADE"), primary_key = True)
+        )
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    balance = Column(Float, default=0.00)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    pesel = Column(String, unique  = True, index = True, nullable = False)
+
+    accounts = relationship("Account", secondary=user_account_association, back_populates="users")
+    notifications = relationship("Notification", back_populates="user", cascade = "all, delete-orphan")
+
+class Account(Base):
+    __tablename__ = "accounts"
+    id = Column(Integer, primary_key=True, index=True)
+    account_number = Column(String, unique=True, index=True, nullable = False)
+    balance = Column(Float, default=1000.0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    notifications = relationship("Notification", back_populates="user", cascade = "all, delete-orphan")
+    users = relationship("User", secondary=user_account_association, back_populates="accounts")
 
 class Transaction(Base):
     __tablename__ = "transactions"
