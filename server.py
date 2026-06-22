@@ -216,6 +216,62 @@ def handle_client(conn, addr):
                     response_str = "NOTIFICATIONS_DATA\n" + "\n".join(notif_lines)
                     conn.sendall(response_str.encode('utf-8'))
 
+            elif command == "DELETE_MY_ACCOUNT":
+                if current_user.username == "admin":
+                    conn.sendall(b"ERROR_CANNOT_DELETE_ADMIN")
+                    continue
+
+                try:
+                    accounts_to_check = list(current_user.accounts)
+                    for acc in accounts_to_check:
+                        current_user.accounts.remove(acc)
+                        db.flush()
+
+                        if not acc.users:
+                            db.delete(acc)
+
+                    db.query(models.Notification).filter(models.Notification.user_id == current_user.id).delete()
+
+                    db.delete(current_user)
+                    db.commit()
+
+                    conn.sendall(b"DELETE_PROFILE_SUCCESS")
+                    current_user = None
+                except Exception as e:
+                    db.rollback()
+                    print(f"[ERROR] Failed to delete user account: {e}")
+                    conn.sendall(b"ERROR_DATABASE_FAILED")
+            elif command == "LEAVE_SHARED_ACCOUNT":
+                if len(parts) < 2:
+                    conn.sendall(b"ERROR_BAD_ARGUMENTS")
+                    continue
+
+                target_acc_num = parts[1]
+
+                account = db.query(models.Account).filter(models.Account.account_number == target_acc_num).with_for_update().first()
+
+                if not account or current_user not in account.users:
+                    conn.sendall(b"ERROR_ACCOUNT_NOT_FOUND")
+                    continue
+
+                if len(account.users) <=1:
+                    conn.sendall(b"ERROR_CANNOT_LEAVE_PERSONAL_ACCOUNT")
+                    continue
+
+                try:
+                    account.users.remove(current_user)
+
+                    for remaining_user in account.users:
+                        new_notification = models.Notification(user_id=remaining_user.id, message=f"User {current_user.username} has left the SHARED ACCOUNT ({target_acc_num})")
+                        db.add(new_notification)
+
+                        db.commit()
+                        conn.sendall(b"LEAVE_SHARED_ACCOUNT_SUCCESS")
+                except Exception as e:
+                    db.rollback()
+                    print(f"[ERROR] Failed to leave shared account: {e}")
+                    conn.sendall(b"ERROR_DATABASE_FAILED")
+
 
             elif command == "ADMIN_GET_USERS":
                 if current_user.username != "admin":

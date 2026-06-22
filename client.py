@@ -84,7 +84,9 @@ def bank_menu(sock):
         print("3. View transaction history")
         print("4. View notifications")
         print("5. Create shared account")
-        print("6. Exit")
+        print("6. Leave a shared account")
+        print("7. Delete my profile/account")
+        print("8. Exit")
 
         choice = input("Enter the option: ").strip()
 
@@ -169,6 +171,41 @@ def bank_menu(sock):
                 print(f"\n[ERROR] Failed: {response}")
 
         elif choice == "6":
+            print("\n--- LEAVE A SHARED ACCOUNT ---")
+            acc_num = input("Enter the shared account number you want to leave: ").strip()
+            if not acc_num:
+                print("\n[ERROR] Account number cannot be empty.")
+                continue
+
+            response = send_command(sock, f"LEAVE_SHARED_ACCOUNT {acc_num}")
+
+            if response == "LEAVE_SHARED_ACCOUNT_SUCCESS":
+                print(f"\n[SUCCESS] You have successfully left the shared account {acc_num}!")
+            elif response == "ERROR_ACCOUNT_NOT_FOUND":
+                print("\n[ERROR] Account not found or it doesn't belong to you.")
+            elif response == "ERROR_CANNOT_LEAVE_PERSONAL_ACCOUNT":
+                print(
+                    "\n[ERROR] You cannot leave your personal account. You can only close/delete your entire profile.")
+            else:
+                print(f"\n[ERROR] Failed to leave account: {response}")
+
+        elif choice == "7":
+            print("\nWARNING: This will permanently delete your profile and all your personal accounts!")
+            confirm = input("Are you absolutely sure? Type 'YES' to confirm: ").strip()
+
+            if confirm == "YES":
+                response = send_command(sock, "DELETE_MY_ACCOUNT")
+                if response == "DELETE_PROFILE_SUCCESS":
+                    print("\n[SUCCESS] Your profile has been successfully deleted. Goodbye!")
+                    break
+                elif response == "ERROR_CANNOT_DELETE_ADMIN":
+                    print("\n[ERROR] You cannot delete the admin account via client menu.")
+                else:
+                    print(f"\n[ERROR] Failed to delete profile: {response}")
+            else:
+                print("\nDeletion cancelled.")
+
+        elif choice == "8":
             print("\nLogged out.")
             break
         else:
